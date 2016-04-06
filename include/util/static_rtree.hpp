@@ -94,7 +94,7 @@ template <class EdgeDataT,
           class CoordinateListT = std::vector<Coordinate>,
           bool UseSharedMemory = false,
           std::uint32_t BRANCHING_FACTOR = 64,
-          std::uint32_t LEAF_NODE_SIZE = 128>
+          std::uint32_t LEAF_NODE_SIZE = 256>
 class StaticRTree
 {
   public:
