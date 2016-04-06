@@ -18,13 +18,13 @@ namespace coordinate_calculation
 {
 
 // Does not project the coordinates!
-double squaredEuclideanDistance(const FloatCoordinate &lhs, const FloatCoordinate &rhs)
-{
-    const double dx = static_cast<double>(lhs.lon - rhs.lon);
-    const double dy = static_cast<double>(lhs.lat - rhs.lat);
-
-    return dx * dx + dy * dy;
-}
+//double squaredEuclideanDistance(const FloatCoordinate &lhs, const FloatCoordinate &rhs)
+//{
+//    const double dx = static_cast<double>(lhs.lon - rhs.lon);
+//    const double dy = static_cast<double>(lhs.lat - rhs.lat);
+//
+//    return dx * dx + dy * dy;
+//}
 
 double haversineDistance(const Coordinate coordinate_1, const Coordinate coordinate_2)
 {
@@ -309,6 +309,7 @@ FloatLatitude yToLat(const double y)
 
 double latToY(const FloatLatitude latitude)
 {
+    // apparently this is the (faster) version of the canonical log(tan()) version
     const double f = std::sin(DEGREE_TO_RAD * static_cast<double>(latitude));
     const double y = RAD_TO_DEGREE * 0.5 * std::log((1 + f) / (1 - f));
     const auto clamped_y = std::max(-180., std::min(180., y));

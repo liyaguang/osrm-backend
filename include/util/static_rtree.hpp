@@ -35,6 +35,58 @@ namespace osrm
 namespace util
 {
 
+namespace detail
+{
+  const constexpr double RAD_TO_DEGREE = 180. / M_PI;
+  const constexpr double DEGREE_TO_RAD = M_PI / 180.;
+inline std::pair<double, Coordinate> projectPointOnSegment(const FloatCoordinate &source,
+                                                         const FloatCoordinate &target,
+                                                         const FloatCoordinate &coordinate)
+{
+    const FloatCoordinate slope_vector{target.lon - source.lon, target.lat - source.lat};
+    const FloatCoordinate rel_coordinate{coordinate.lon - source.lon, coordinate.lat - source.lat};
+    // dot product of two un-normed vectors
+    const auto unnormed_ratio = static_cast<double>(slope_vector.lon * rel_coordinate.lon) +
+                                static_cast<double>(slope_vector.lat * rel_coordinate.lat);
+    // squared length of the slope vector
+    const auto squared_length = static_cast<double>(slope_vector.lon * slope_vector.lon) +
+                                static_cast<double>(slope_vector.lat * slope_vector.lat);
+
+    if (squared_length < std::numeric_limits<double>::epsilon())
+    {
+        return {0, source};
+    }
+
+    const double normed_ratio = unnormed_ratio / squared_length;
+    double clamped_ratio = normed_ratio;
+    if (clamped_ratio > 1.)
+    {
+        clamped_ratio = 1.;
+    }
+    else if (clamped_ratio < 0.)
+    {
+        clamped_ratio = 0.;
+    }
+    return {clamped_ratio,
+            {
+                toFixed(source.lon + slope_vector.lon * FloatLongitude(clamped_ratio)),
+                toFixed(source.lat + slope_vector.lat * FloatLatitude(clamped_ratio)),
+            }};
+}
+inline double latToY(const FloatLatitude latitude)
+{
+    // apparently this is the (faster) version of the canonical log(tan()) version
+    const double f = std::sin(DEGREE_TO_RAD * static_cast<double>(latitude));
+    const double y = RAD_TO_DEGREE * 0.5 * std::log((1 + f) / (1 - f));
+    const auto clamped_y = std::max(-180., std::min(180., y));
+    return clamped_y;
+}
+inline FloatCoordinate fromWGS84(const FloatCoordinate &wgs84_coordinate)
+{
+    return {wgs84_coordinate.lon, FloatLatitude{latToY(wgs84_coordinate.lat)}};
+}
+}
+
 // Static RTree for serving nearest neighbour queries
 // All coordinates are pojected first to Web Mercator before the bounding boxes
 // are computed, this means the internal distance metric doesn not represent meters!
@@ -42,7 +94,7 @@ template <class EdgeDataT,
           class CoordinateListT = std::vector<Coordinate>,
           bool UseSharedMemory = false,
           std::uint32_t BRANCHING_FACTOR = 64,
-          std::uint32_t LEAF_NODE_SIZE = 1024>
+          std::uint32_t LEAF_NODE_SIZE = 128>
 class StaticRTree
 {
   public:
@@ -101,7 +153,7 @@ class StaticRTree
             return other.squared_min_dist < squared_min_dist;
         }
 
-        double squared_min_dist;
+        long squared_min_dist;
         QueryNodeType node;
     };
 
@@ -409,12 +461,12 @@ class StaticRTree
     Nearest(const Coordinate input_coordinate, const FilterT filter, const TerminationT terminate)
     {
         std::vector<EdgeDataT> results;
-        auto projected_coordinate = coordinate_calculation::mercator::fromWGS84(input_coordinate);
+        auto projected_coordinate = detail::fromWGS84(input_coordinate);
         Coordinate fixed_projected_coordinate{projected_coordinate};
 
         // initialize queue with root element
         std::priority_queue<QueryCandidate> traversal_queue;
-        traversal_queue.push(QueryCandidate{0.f, m_search_tree[0]});
+        traversal_queue.push(QueryCandidate{0, m_search_tree[0]});
 
         while (!traversal_queue.empty())
         {
@@ -427,7 +479,7 @@ class StaticRTree
                     current_query_node.node.template get<TreeNode>();
                 if (current_tree_node.child_is_on_disk)
                 {
-                    ExploreLeafNode(current_tree_node.children[0], projected_coordinate,
+                    ExploreLeafNode(current_tree_node.children[0], fixed_projected_coordinate, projected_coordinate,
                                     traversal_queue);
                 }
                 else
@@ -464,6 +516,7 @@ class StaticRTree
   private:
     template <typename QueueT>
     void ExploreLeafNode(const std::uint32_t leaf_id,
+                         const Coordinate projected_input_coordinate_fixed,
                          const FloatCoordinate &projected_input_coordinate,
                          QueueT &traversal_queue)
     {
@@ -475,17 +528,17 @@ class StaticRTree
         {
             auto &current_edge = current_leaf_node.objects[i];
             auto projected_u =
-                coordinate_calculation::mercator::fromWGS84((*m_coordinate_list)[current_edge.u]);
+                detail::fromWGS84((*m_coordinate_list)[current_edge.u]);
             auto projected_v =
-                coordinate_calculation::mercator::fromWGS84((*m_coordinate_list)[current_edge.v]);
+                detail::fromWGS84((*m_coordinate_list)[current_edge.v]);
 
-            FloatCoordinate projected_nearest;
+            Coordinate projected_nearest;
             std::tie(std::ignore, projected_nearest) =
-                coordinate_calculation::projectPointOnSegment(projected_u, projected_v,
+                detail::projectPointOnSegment(projected_u, projected_v,
                                                               projected_input_coordinate);
 
             auto squared_distance = coordinate_calculation::squaredEuclideanDistance(
-                projected_input_coordinate, projected_nearest);
+                projected_input_coordinate_fixed, projected_nearest);
             // distance must be non-negative
             BOOST_ASSERT(0. <= squared_distance);
 
@@ -540,9 +593,9 @@ class StaticRTree
             BOOST_ASSERT(objects[i].u < coordinate_list.size());
             BOOST_ASSERT(objects[i].v < coordinate_list.size());
 
-            Coordinate projected_u{coordinate_calculation::mercator::fromWGS84(
+            Coordinate projected_u{detail::fromWGS84(
                 Coordinate{coordinate_list[objects[i].u]})};
-            Coordinate projected_v{coordinate_calculation::mercator::fromWGS84(
+            Coordinate projected_v{detail::fromWGS84(
                 Coordinate{coordinate_list[objects[i].v]})};
 
             BOOST_ASSERT(toFloating(projected_u.lon) <= FloatLongitude(180.));
