@@ -13,7 +13,17 @@ let coords_separator = ";";
 var sw = [Number.MAX_VALUE, Number.MAX_VALUE];
 var ne = [Number.MIN_VALUE, Number.MIN_VALUE];
 
-if (process.argv.length > 2 && process.argv[2] != "planet")
+if (process.argv.length > 2 && process.argv[2] == "planet")
+{
+  sw = [-180., -85.];
+  ne = [180., 85.];
+}
+if (process.argv.length > 2 && process.argv[2] == "us")
+{
+  sw = [-127., 24.];
+  ne = [-67., 48.];
+}
+else if (process.argv.length > 2)
 {
   let monaco_poly_path = process.argv[2];
   let poly_data = fs.readFileSync(monaco_poly_path, 'utf-8');
@@ -33,11 +43,8 @@ if (process.argv.length > 2 && process.argv[2] != "planet")
     ne[1] = Math.max(ne[1], c[1]);
   });
 }
-else
-{
-  sw = [-180., -85.];
-  ne = [180., 85.];
-}
+console.error(sw);
+console.error(ne);
 
 if (process.argv.length > 3)
 {
