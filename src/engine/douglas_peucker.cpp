@@ -27,11 +27,12 @@ struct FastPerpendicularDistance
     double operator()(const util::Coordinate segment) const
     {
         auto projected = util::coordinate_calculation::mercator::fromWGS84(segment);
-        util::FloatCoordinate point_on_segment;
-        std::tie(std::ignore, point_on_segment) =
+        util::FloatCoordinate projected_point_on_segment;
+        std::tie(std::ignore, projected_point_on_segment) =
             util::coordinate_calculation::projectPointOnSegment(projected_start, projected_target,
                                                                 projected);
-        return util::coordinate_calculation::greatCircleDistance(projected, point_on_segment);
+        auto point_on_segment = util::coordinate_calculation::mercator::toWGS84(projected_point_on_segment);
+        return util::coordinate_calculation::greatCircleDistance(segment, point_on_segment);
     }
 
     const util::FloatCoordinate projected_start;
