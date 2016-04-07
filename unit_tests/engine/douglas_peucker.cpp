@@ -14,7 +14,7 @@ using namespace osrm::engine;
 
 BOOST_AUTO_TEST_CASE(calibrate_thresholds)
 {
-    auto thresholds = detail::generateThreshold(3, 19);
+    auto thresholds = detail::generateThreshold(5, 19);
     auto z = 0;
     for (auto t : thresholds)
     {
