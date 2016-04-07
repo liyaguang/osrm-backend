@@ -36,7 +36,7 @@ const constexpr double MAX_LONGITUDE = 180.0;
 //! Takes the squared euclidean distance of the input coordinates. Does not return meters!
 //double squaredEuclideanDistance(const FloatCoordinate &lhs, const FloatCoordinate &rhs);
 //
-inline long squaredEuclideanDistance(const Coordinate lhs, const Coordinate rhs)
+inline std::uint64_t squaredEuclideanDistance(const Coordinate lhs, const Coordinate rhs)
 {
     const long dx = static_cast<int>(lhs.lon - rhs.lon);
     const long dy = static_cast<int>(lhs.lat - rhs.lat);

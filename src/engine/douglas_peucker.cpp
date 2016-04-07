@@ -24,15 +24,17 @@ struct FastPerpendicularDistance
     {
     }
 
-    double operator()(const util::Coordinate segment) const
+    // Normed to the thresholds table
+    std::uint64_t operator()(const util::Coordinate coordinate) const
     {
-        auto projected = util::coordinate_calculation::mercator::fromWGS84(segment);
+        auto projected = util::coordinate_calculation::mercator::fromWGS84(coordinate);
         util::FloatCoordinate projected_point_on_segment;
         std::tie(std::ignore, projected_point_on_segment) =
             util::coordinate_calculation::projectPointOnSegment(projected_start, projected_target,
                                                                 projected);
-        auto point_on_segment = util::coordinate_calculation::mercator::toWGS84(projected_point_on_segment);
-        return util::coordinate_calculation::greatCircleDistance(segment, point_on_segment);
+        auto squared_distance = util::coordinate_calculation::squaredEuclideanDistance(projected,
+                                                                      projected_point_on_segment);
+        return squared_distance;
     }
 
     const util::FloatCoordinate projected_start;
@@ -74,7 +76,7 @@ std::vector<util::Coordinate> douglasPeucker(std::vector<util::Coordinate>::cons
         BOOST_ASSERT_MSG(pair.second < size, "right border outside of geometry");
         BOOST_ASSERT_MSG(pair.first <= pair.second, "left border on the wrong side");
 
-        double max_distance = 0;
+        std::uint64_t max_distance = 0;
         auto farthest_entry_index = pair.second;
 
         FastPerpendicularDistance perpendicular_distance(begin[pair.first], begin[pair.second]);
