@@ -30,6 +30,7 @@ ViaRoutePlugin::ViaRoutePlugin(datafacade::BaseDataFacade &facade_, int max_loca
 Status ViaRoutePlugin::HandleRequest(const api::RouteParameters &route_parameters,
                                      util::json::Object &json_result)
 {
+    TIMER_START(total);
     BOOST_ASSERT(route_parameters.IsValid());
 
     if (max_locations_viaroute > 0 &&
@@ -42,11 +43,7 @@ Status ViaRoutePlugin::HandleRequest(const api::RouteParameters &route_parameter
                      json_result);
     }
 
-    if (!CheckAllCoordinates(route_parameters.coordinates))
-    {
-        return Error("InvalidValue", "Invalid coordinate value.", json_result);
-    }
-
+    TIMER_START(phantoms);
     auto phantom_node_pairs = GetPhantomNodes(route_parameters);
     if (phantom_node_pairs.size() != route_parameters.coordinates.size())
     {
@@ -57,10 +54,12 @@ Status ViaRoutePlugin::HandleRequest(const api::RouteParameters &route_parameter
     BOOST_ASSERT(phantom_node_pairs.size() == route_parameters.coordinates.size());
 
     auto snapped_phantoms = SnapPhantomNodes(phantom_node_pairs);
+    TIMER_STOP(phantoms);
 
     const bool allow_u_turn_at_via =
         route_parameters.uturns ? *route_parameters.uturns : facade.GetUTurnsDefault();
 
+    TIMER_START(query);
     InternalRouteResult raw_route;
     auto build_phantom_pairs = [&raw_route, allow_u_turn_at_via](const PhantomNode &first_node,
                                                                  const PhantomNode &second_node)
@@ -95,7 +94,9 @@ Status ViaRoutePlugin::HandleRequest(const api::RouteParameters &route_parameter
     {
         shortest_path(raw_route.segment_end_coordinates, route_parameters.uturns, raw_route);
     }
+    TIMER_STOP(query);
 
+    TIMER_START(api);
     // we can only know this after the fact, different SCC ids still
     // allow for connection in one direction.
     if (raw_route.is_valid())
@@ -121,6 +122,15 @@ Status ViaRoutePlugin::HandleRequest(const api::RouteParameters &route_parameter
             return Error("NoRoute", "No route found between points", json_result);
         }
     }
+    TIMER_STOP(api);
+    TIMER_STOP(total);
+
+    util::json::Object json_timings;
+    json_timings.values["phantoms"] = TIMER_MSEC(phantoms);
+    json_timings.values["query"] = TIMER_MSEC(query);
+    json_timings.values["api"] = TIMER_MSEC(api);
+    json_timings.values["total"] = TIMER_MSEC(total);
+    json_result.values["timings"] = json_timings;
 
     return Status::Ok;
 }
