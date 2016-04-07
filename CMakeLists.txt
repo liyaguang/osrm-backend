@@ -33,6 +33,7 @@ option(ENABLE_CCACHE "Speed up incremental rebuilds via ccache" ON)
 option(ENABLE_JSON_LOGGING "Adds additional JSON debug logging to the response" OFF)
 option(BUILD_TOOLS "Build OSRM tools" OFF)
 option(ENABLE_ASSERTIONS OFF)
+option(ENABLE_BOOST_TEST_DYN_LINK "Build unit tests to expect libboost_unit_test_framework is a shared library" ON)
 
 include_directories(BEFORE ${CMAKE_CURRENT_BINARY_DIR}/include/)
 include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/include/)
@@ -150,7 +151,7 @@ if(CMAKE_BUILD_TYPE MATCHES Release)
   endif()
 endif()
 
-if(NOT WIN32)
+if(NOT WIN32 and ENABLE_BOOST_TEST_DYN_LINK)
   add_definitions(-DBOOST_TEST_DYN_LINK)
 endif()
 
@@ -236,7 +237,7 @@ include_directories(SYSTEM ${OSMIUM_INCLUDE_DIRS})
 
 
 find_package(Boost 1.49.0 COMPONENTS ${BOOST_COMPONENTS} REQUIRED)
-if(NOT WIN32)
+if(NOT WIN32 and ENABLE_BOOST_TEST_DYN_LINK)
   add_definitions(-DBOOST_TEST_DYN_LINK)
 endif()
 add_definitions(-DBOOST_SPIRIT_USE_PHOENIX_V3 -DBOOST_RESULT_OF_USE_DECLTYPE)
