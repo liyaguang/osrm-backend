@@ -5,6 +5,7 @@
 #include "engine/routing_algorithms/many_to_many.hpp"
 #include "engine/search_engine_data.hpp"
 #include "util/string_util.hpp"
+#include "util/timing_util.hpp"
 #include "util/json_container.hpp"
 
 #include <cstdlib>
@@ -31,6 +32,7 @@ TablePlugin::TablePlugin(datafacade::BaseDataFacade &facade, const int max_locat
 
 Status TablePlugin::HandleRequest(const api::TableParameters &params, util::json::Object &result)
 {
+    TIMER_START(total);
     BOOST_ASSERT(params.IsValid());
 
     if (!CheckAllCoordinates(params.coordinates))
@@ -58,16 +60,30 @@ Status TablePlugin::HandleRequest(const api::TableParameters &params, util::json
         return Error("TooBig", "Too many table coordinates", result);
     }
 
+    TIMER_START(phantoms);
     auto snapped_phantoms = SnapPhantomNodes(GetPhantomNodes(params));
+    TIMER_STOP(phantoms);
+    TIMER_START(query);
     auto result_table = distance_table(snapped_phantoms, params.sources, params.destinations);
+    TIMER_STOP(query);
 
     if (result_table.empty())
     {
         return Error("NoTable", "No table found", result);
     }
 
+    TIMER_START(api);
     api::TableAPI table_api{facade, params};
     table_api.MakeResponse(result_table, snapped_phantoms, result);
+    TIMER_STOP(api);
+    TIMER_STOP(total);
+
+    util::json::Object json_timings;
+    json_timings.values["phantoms"] = TIMER_MSEC(phantoms);
+    json_timings.values["query"] = TIMER_MSEC(query);
+    json_timings.values["api"] = TIMER_MSEC(api);
+    json_timings.values["total"] = TIMER_MSEC(total);
+    result.values["timings"] = json_timings;
 
     return Status::Ok;
 }
