@@ -1,4 +1,5 @@
 #include "engine/douglas_peucker.hpp"
+#include "util/coordinate_calculation.hpp"
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/test_case_template.hpp>
@@ -33,9 +34,9 @@ BOOST_AUTO_TEST_CASE(removed_middle_test)
     */
     std::vector<util::Coordinate> coordinates = {
         util::Coordinate(util::FloatLongitude(5), util::FloatLatitude(5)),
-        util::Coordinate(util::FloatLongitude(5.995715), util::FloatLatitude(6)),
-        util::Coordinate(util::FloatLongitude(10), util::FloatLatitude(10)),
-        util::Coordinate(util::FloatLongitude(15), util::FloatLatitude(5))};
+        util::Coordinate(util::FloatLongitude(12.5), util::FloatLatitude(12.6096298302)),
+        util::Coordinate(util::FloatLongitude(20), util::FloatLatitude(20)),
+        util::Coordinate(util::FloatLongitude(25), util::FloatLatitude(5))};
 
     for (unsigned z = 0; z < detail::DOUGLAS_PEUCKER_THRESHOLDS_SIZE; z++)
     {
@@ -59,19 +60,19 @@ BOOST_AUTO_TEST_CASE(removed_middle_test_zoom_sensitive)
     std::vector<util::Coordinate> coordinates = {
         util::Coordinate(util::FloatLongitude(5), util::FloatLatitude(5)),
         util::Coordinate(util::FloatLongitude(6), util::FloatLatitude(6)),
-        util::Coordinate(util::FloatLongitude(10), util::FloatLatitude(10)),
-        util::Coordinate(util::FloatLongitude(15), util::FloatLatitude(5))};
+        util::Coordinate(util::FloatLongitude(20), util::FloatLatitude(20)),
+        util::Coordinate(util::FloatLongitude(25), util::FloatLatitude(5))};
 
-    // Coordinate 6,6 should start getting included at Z12 and higher
+    // Coordinate 6,6 should start getting included at Z9 and higher
     // Note that 5,5->6,6->10,10 is *not* a straight line on the surface
     // of the earth
-    for (unsigned z = 0; z < 11; z++)
+    for (unsigned z = 0; z < 9; z++)
     {
         auto result = douglasPeucker(coordinates, z);
         BOOST_CHECK_EQUAL(result.size(), 3);
     }
-    // From 12 to max zoom, we should get all coordinates
-    for (unsigned z = 12; z < detail::DOUGLAS_PEUCKER_THRESHOLDS_SIZE; z++)
+    // From 9 to max zoom, we should get all coordinates
+    for (unsigned z = 9; z < detail::DOUGLAS_PEUCKER_THRESHOLDS_SIZE; z++)
     {
         auto result = douglasPeucker(coordinates, z);
         BOOST_CHECK_EQUAL(result.size(), 4);
@@ -87,7 +88,8 @@ BOOST_AUTO_TEST_CASE(remove_second_node_test)
         const double b = shift / 2.0;
         return pixel * 180. / b;
     };
-    for (unsigned z = 0; z < detail::DOUGLAS_PEUCKER_THRESHOLDS_SIZE; z++)
+    // For zoom level 0 all gets reduced to a line
+    for (unsigned z = 1; z < detail::DOUGLAS_PEUCKER_THRESHOLDS_SIZE; z++)
     {
         /*
              x
