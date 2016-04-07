@@ -16,6 +16,28 @@ namespace osrm
 namespace engine
 {
 
+struct FastPerpendicularDistance
+{
+    FastPerpendicularDistance(const util::Coordinate start, const util::Coordinate target)
+        : projected_start(util::coordinate_calculation::mercator::fromWGS84(start)),
+          projected_target(util::coordinate_calculation::mercator::fromWGS84(target))
+    {
+    }
+
+    double operator()(const util::Coordinate segment) const
+    {
+        auto projected = util::coordinate_calculation::mercator::fromWGS84(segment);
+        util::FloatCoordinate point_on_segment;
+        std::tie(std::ignore, point_on_segment) =
+            util::coordinate_calculation::projectPointOnSegment(projected_start, projected_target,
+                                                                projected);
+        return util::coordinate_calculation::greatCircleDistance(projected, point_on_segment);
+    }
+
+    const util::FloatCoordinate projected_start;
+    const util::FloatCoordinate projected_target;
+};
+
 std::vector<util::Coordinate> douglasPeucker(std::vector<util::Coordinate>::const_iterator begin,
                                              std::vector<util::Coordinate>::const_iterator end,
                                              const unsigned zoom_level)
@@ -54,11 +76,13 @@ std::vector<util::Coordinate> douglasPeucker(std::vector<util::Coordinate>::cons
         double max_distance = 0;
         auto farthest_entry_index = pair.second;
 
+        FastPerpendicularDistance perpendicular_distance(begin[pair.first], begin[pair.second]);
+
         // sweep over range to find the maximum
         for (auto idx = pair.first + 1; idx != pair.second; ++idx)
         {
             using namespace util::coordinate_calculation;
-            const auto distance = perpendicularDistance(begin[pair.first], begin[pair.second], begin[idx]);
+            const auto distance = perpendicular_distance(begin[idx]);
             // found new feasible maximum?
             if (distance > max_distance &&
                 distance > detail::DOUGLAS_PEUCKER_THRESHOLDS[zoom_level])
