@@ -125,6 +125,7 @@ maxspeed_table = {
   ["uk:nsl_single"] = (60*1609)/1000,
   ["uk:nsl_dual"] = (70*1609)/1000,
   ["uk:motorway"] = (70*1609)/1000
+  ["none"] = 140
 }
 
 -- set profile properties
